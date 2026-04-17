@@ -5,20 +5,27 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/ajananias/pokedex/internal/pokeapi"
 )
 
-func startLoop() {
+func startLoop(cfg *config) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("Pokedex > ")
 		scanner.Scan()
 		userInput := scanner.Text()
 		cleanUserInput := cleanInput(userInput)
+		
+		if len(cleanUserInput) == 0 {
+			continue
+		}
+
 		firstWord := cleanUserInput[0]
 
 		command, exists := getCommands()[firstWord]
 		if exists {
-			err := command.callback()
+			err := command.callback(cfg)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -41,7 +48,12 @@ func cleanInput(text string) []string {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(cfg *config) error
+}
+type config struct {
+	pokeapiClient    pokeapi.Client
+	nextLocationsURL *string
+	prevLocationsURL *string
 }
 
 func getCommands() map[string]cliCommand {
