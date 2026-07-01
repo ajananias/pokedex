@@ -10,35 +10,44 @@ import (
 
 type Result struct {
 	Name string
-	Url string
+	Url  string
 }
 
 type Page struct {
-	Count int
-	Next *string
+	Count    int
+	Next     *string
 	Previous *string
-	Results []Result
+	Results  []Result
 }
 
-func commandMap(c *config) error {
+func commandMap(c *config, parameters string) error {
 	url := ""
 	if c.nextLocationsURL == nil {
 		url = "https://pokeapi.co/api/v2/location-area/?offset=0&limit=20"
 	} else {
 		url = *c.nextLocationsURL
 	}
-	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
+
+	var body []byte
+	cache, exists := c.pokeCache.Get(url)
+	if exists {
+		body = cache
+	} else {
+		res, err := http.Get(url)
+		if err != nil {
+			log.Fatal(err)
+		}
+		body, err = io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode > 299 {
+			log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		c.pokeCache.Add(url, body)
 	}
-	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
-	if res.StatusCode > 299 {
-		log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	// unmarshal the JSON of the page
 	var page Page
 	if err := json.Unmarshal(body, &page); err != nil {

@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-func commandMapBack(c *config) error {
+func commandMapBack(c *config, parameters string) error {
 	url := ""
 	if c.prevLocationsURL == nil {
 		fmt.Println("you're on the first page")
@@ -16,17 +16,25 @@ func commandMapBack(c *config) error {
 	} else {
 		url = *c.prevLocationsURL
 	}
-	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
-	if res.StatusCode > 299 {
-		log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
-	}
-	if err != nil {
-		log.Fatal(err)
+
+	var body []byte
+	cache, exists := c.pokeCache.Get(url)
+	if exists {
+		body = cache
+	} else {
+		res, err := http.Get(url)
+		if err != nil {
+			log.Fatal(err)
+		}
+		body, err = io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode > 299 {
+			log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		c.pokeCache.Add(url, body)
 	}
 	// unmarshal the JSON of the page
 	var page Page
